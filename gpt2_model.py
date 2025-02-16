@@ -15,6 +15,23 @@ class GPTConfig:
     n_head: int = 12  # number of heads
     n_embd: int = 768  # embedding dimension
 
+    def residual_std_factor(self) -> float:
+        """
+        we do not want std to explode in residual pathway, so we scale it down by a factor
+        ```python
+        x = normal(std=0.1)
+        v = normal(std=0.1)
+        # case 1
+        x = x + v + .. (n times v)
+        # std will become std=sqrt(0.1**2 + 0.1 ** 2 * n)
+        # case 2
+        x = x + sqrt(n) * (v + .. (n times v))
+        # std will become std=sqrt(0.1**2 + (sqrt(n) * 0.1)**2 * n)
+        ```
+        """
+        # we have 2 add operator in residual pathway per layer
+        return (2 * self.n_layer) ** -0.5
+
 
 class CausalSelfAttention(nn.Module):
 
@@ -36,9 +53,12 @@ class CausalSelfAttention(nn.Module):
             ),
         )
 
-        nn.init.constant_(self.c_attn.weight, 1 / config.n_embd)
+        nn.init.normal_(self.c_attn.weight, mean=0, std=0.02)
         nn.init.constant_(self.c_attn.bias, 0)
-        nn.init.constant_(self.c_proj.weight, 1 / config.n_embd)
+        # c_proj is used in residual pathway
+        nn.init.normal_(
+            self.c_proj.weight, mean=0, std=0.02 * config.residual_std_factor()
+        )
         nn.init.constant_(self.c_proj.bias, 0)
 
     def forward(self, x):
@@ -80,9 +100,12 @@ class MLP(nn.Module):
         self.gelu = nn.GELU(approximate="tanh")
         self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd)
 
-        nn.init.constant_(self.c_fc.weight, 1 / config.n_embd)
+        nn.init.normal_(self.c_fc.weight, mean=0, std=0.02)
         nn.init.constant_(self.c_fc.bias, 0)
-        nn.init.constant_(self.c_proj.weight, 1 / config.n_embd)
+        # c_proj is used in residual pathway
+        nn.init.normal_(
+            self.c_proj.weight, mean=0, std=0.02 * config.residual_std_factor()
+        )
         nn.init.constant_(self.c_proj.bias, 0)
 
     def forward(self, x):
@@ -128,13 +151,12 @@ class GPT(nn.Module):
         )
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-        # Share the same weight tensor between lm_head and wte
-        self.lm_head.weight = self.transformer.wte.weight
-
+        nn.init.normal_(self.transformer.wte.weight, mean=0, std=0.02)
+        nn.init.normal_(self.transformer.wpe.weight, mean=0, std=0.01)
         nn.init.constant_(self.transformer.ln_f.weight, 1)
 
-        nn.init.constant_(self.transformer.wte.weight, 0.0001)
-        nn.init.constant_(self.transformer.wpe.weight, 0.0001)
+        # Share the same weight tensor between lm_head and wte
+        self.lm_head.weight = self.transformer.wte.weight
 
     def forward(self, idx, targets=None):
         # idx is of shape (B, T)

@@ -36,21 +36,25 @@ class DataLoaderLite:
         return x, y
 
 
-train_loader = DataLoaderLite(B=4, T=32)
+train_loader = DataLoaderLite(B=4, T=64)
 
 
-model = my_gpt2_model.GPT(my_gpt2_model.GPTConfig())
-model.to(device=device)
+def train():
+    model = my_gpt2_model.GPT(my_gpt2_model.GPTConfig())
+    model.to(device=device)
 
-i = 0
-optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
-while True:
-    optimizer.zero_grad()
-    x, y = train_loader.next_batch()
-    logits, loss = model(x, y)
-    loss.backward()
-    optimizer.step()
-    print(f"step {i}, loss: {loss.item()}")
-    i += 1
-    if loss.item() < 0.1:
-        break
+    i = 0
+    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
+    for _ in range(100):
+        optimizer.zero_grad()
+        x, y = train_loader.next_batch()
+        logits, loss = model(x, y)
+        loss.backward()
+        optimizer.step()
+        print(f"step {i}, loss: {loss.item()}")
+        i += 1
+    return model
+
+
+if __name__ == "__main__":
+    model = train()

@@ -3,6 +3,7 @@ import torch
 import tiktoken
 from typing import List
 from torch.nn import functional as F
+from select_device import device
 
 
 def run_gpt2(
@@ -11,11 +12,12 @@ def run_gpt2(
     expected_size: int,
     num_return_sequences: int = 1,
 ) -> List[str]:
+    model.to(device=device)
     enc = tiktoken.get_encoding("gpt2")
     tokens = enc.encode(input)
-    tokens = torch.tensor(tokens, dtype=torch.long)  # (8,)
+    tokens = torch.tensor(tokens, dtype=torch.long, device=device)  # (8,)
     tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1)  # (5, 8)
-    x = tokens.to("cpu")
+    x = tokens
     # generate! right now x is (B, T) where B = 5, T = 8
     # set the seed to 42
     torch.manual_seed(42)

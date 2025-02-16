@@ -63,7 +63,6 @@ def from_pretrained(model_type):
             with torch.no_grad():
                 sd[k].copy_(sd_hf[k])
     model.eval()
-    model.to("cpu")
     return model
 
 

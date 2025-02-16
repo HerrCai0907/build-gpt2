@@ -36,6 +36,11 @@ class CausalSelfAttention(nn.Module):
             ),
         )
 
+        nn.init.constant_(self.c_attn.weight, 1 / config.n_embd)
+        nn.init.constant_(self.c_attn.bias, 0)
+        nn.init.constant_(self.c_proj.weight, 1 / config.n_embd)
+        nn.init.constant_(self.c_proj.bias, 0)
+
     def forward(self, x):
         B, T, C = (
             x.size()
@@ -75,6 +80,11 @@ class MLP(nn.Module):
         self.gelu = nn.GELU(approximate="tanh")
         self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd)
 
+        nn.init.constant_(self.c_fc.weight, 1 / config.n_embd)
+        nn.init.constant_(self.c_fc.bias, 0)
+        nn.init.constant_(self.c_proj.weight, 1 / config.n_embd)
+        nn.init.constant_(self.c_proj.bias, 0)
+
     def forward(self, x):
         x = self.c_fc(x)
         x = self.gelu(x)
@@ -90,6 +100,9 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention(config)
         self.ln_2 = nn.LayerNorm(config.n_embd)
         self.mlp = MLP(config)
+
+        nn.init.constant_(self.ln_1.weight, 1)
+        nn.init.constant_(self.ln_2.weight, 1)
 
     def forward(self, x):
         # attn is an aggregation function, which will weighted sum input
@@ -115,7 +128,15 @@ class GPT(nn.Module):
         )
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-    def forward(self, idx):
+        # Share the same weight tensor between lm_head and wte
+        self.lm_head.weight = self.transformer.wte.weight
+
+        nn.init.constant_(self.transformer.ln_f.weight, 1)
+
+        nn.init.constant_(self.transformer.wte.weight, 0.0001)
+        nn.init.constant_(self.transformer.wpe.weight, 0.0001)
+
+    def forward(self, idx, targets=None):
         # idx is of shape (B, T)
         B, T = idx.size()
         assert (
@@ -132,4 +153,10 @@ class GPT(nn.Module):
         # forward the final layernorm and the classifier
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x)  # (B, T, vocab_size)
-        return logits
+        loss = None
+        if targets is not None:
+            cross_entropy_result = logits.view(
+                B * T, logits.size(2)
+            )  # (B * T, vocab_size)
+            loss = F.cross_entropy(cross_entropy_result, targets.view(-1))
+        return logits, loss

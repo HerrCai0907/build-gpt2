@@ -24,7 +24,7 @@ def run_gpt2(
     while x.size(1) < expected_size:
         # forward the model to get the logits
         with torch.no_grad():
-            logits = model(x)  # (B, T, vocab_size)
+            logits, _ = model(x)  # (B, T, vocab_size)
             # take the logits at the last position
             logits = logits[:, -1, :]  # (B, vocab_size)
             # get the probabilities

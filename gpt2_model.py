@@ -128,6 +128,7 @@ class Block(nn.Module):
         nn.init.constant_(self.ln_2.weight, 1)
 
     def forward(self, x):
+        print(self.ln_1(x))
         # attn is an aggregation function, which will weighted sum input
         x = x + self.attn(self.ln_1(x))
         # mpl do operation for every single token individually

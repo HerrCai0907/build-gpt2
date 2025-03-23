@@ -1,2 +1,6 @@
-/venv
+/.venv
+/.cache
 __pycache__
+a.out
+/*.pt
+/build

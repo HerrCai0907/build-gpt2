@@ -69,13 +69,15 @@ def from_pretrained(model_type):
 model = from_pretrained("gpt2")
 # -----------------------------------------------------------------------------
 
+torch.save(model, "gpt2.pt")
+
 print(
     "\n".join(
         my_gpt2_call.run_gpt2(
             model=model,
             input="Hello, I'm a language model,",
-            expected_size=30,
-            num_return_sequences=5,
+            expected_size=10,
+            num_return_sequences=1,
         )
     )
 )
